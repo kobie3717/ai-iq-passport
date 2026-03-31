@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-iq-passport"
+version = "0.1.0"
+description = "Portable AI agent identity & reputation layer for cross-framework agent collaboration"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Kobie Theron", email = "kobie3717@gmail.com"}
+]
+keywords = [
+    "ai", "agent", "identity", "reputation", "a2a", "mcp", "crewai",
+    "multi-agent", "agent-mesh", "ai-memory", "verifiable-credentials"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "cryptography>=41.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+ai-iq = ["ai-iq>=0.1.0"]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "mypy>=1.5.0",
+    "types-cryptography",
+]
+
+[project.scripts]
+ai-iq-passport = "passport.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/kobie3717/ai-iq-passport"
+Repository = "https://github.com/kobie3717/ai-iq-passport"
+Issues = "https://github.com/kobie3717/ai-iq-passport/issues"
+
+[tool.setuptools]
+packages = ["passport", "passport.adapters"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=passport --cov-report=term-missing --cov-report=html"
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
