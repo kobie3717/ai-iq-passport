@@ -55,6 +55,9 @@ Issues = "https://github.com/kobie3717/ai-iq-passport/issues"
 [tool.setuptools]
 packages = ["passport", "passport.adapters"]
 
+[tool.setuptools.package-data]
+passport = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
