@@ -210,7 +210,52 @@ a2a_card = export_a2a(card.to_dict())
 # Use in A2A protocol for agent discovery and capability matching
 ```
 
-### As MCP Resource
+### With MCP Server (Claude Code Integration)
+
+AI-IQ Passport includes a native MCP (Model Context Protocol) server that exposes agent passports as resources and tools.
+
+**Setup:**
+
+1. Add to your Claude Code MCP config (`~/.config/claude/mcp.json` or similar):
+
+```json
+{
+  "mcpServers": {
+    "ai-iq-passport": {
+      "command": "python",
+      "args": ["-m", "passport.mcp_server"]
+    }
+  }
+}
+```
+
+2. Restart Claude Code. The passport server will be available.
+
+**Resources:**
+
+- `passport://current` - Get current agent's passport
+- `passport://{agent_id}` - Get specific agent's passport
+
+**Tools:**
+
+- `passport_generate` - Generate a new passport (with optional AI-IQ import)
+- `passport_verify` - Verify passport signature
+- `passport_skills` - List top skills with confidence scores
+- `passport_reputation` - Get reputation breakdown
+
+**Example usage in Claude Code:**
+
+```
+Read passport://current
+
+Use passport_generate to create a passport for "MyAgent" with AI-IQ import from ~/.ai-iq/memories.db
+
+Show me the top 5 skills using passport_skills
+```
+
+The MCP server automatically stores passports at `~/.ai-iq-passport/passport.json` and maintains a registry at `~/.ai-iq-passport/registry/` for multi-agent scenarios.
+
+### As MCP Resource (Programmatic)
 
 ```python
 from passport import AgentCard
@@ -219,7 +264,7 @@ from passport.adapters import export_mcp
 card = AgentCard.load("agent.json")
 mcp_resource = export_mcp(card.to_dict())
 
-# Serve via MCP server for Claude Desktop to access
+# Returns MCP-compatible resource dict
 ```
 
 ### Programmatic API
@@ -308,12 +353,52 @@ Contributions welcome! Please:
 
 MIT License - see LICENSE file for details.
 
+## MCP Server Installation
+
+To use the MCP server with Claude Code or other MCP clients:
+
+```bash
+# Install with MCP support
+pip install ai-iq-passport[mcp]
+
+# Or if already installed
+pip install mcp>=1.0.0
+```
+
+Add to your MCP config (see `mcp_config.json` for example):
+
+```json
+{
+  "mcpServers": {
+    "ai-iq-passport": {
+      "command": "python",
+      "args": ["-m", "passport.mcp_server"]
+    }
+  }
+}
+```
+
+Or use the entry point:
+
+```json
+{
+  "mcpServers": {
+    "ai-iq-passport": {
+      "command": "ai-iq-passport-mcp"
+    }
+  }
+}
+```
+
+Restart your MCP client to load the server.
+
 ## Links
 
 - GitHub: https://github.com/kobie3717/ai-iq-passport
 - PyPI: https://pypi.org/project/ai-iq-passport/ (coming soon)
 - Issues: https://github.com/kobie3717/ai-iq-passport/issues
 - AI-IQ Memory System: https://github.com/kobie3717/ai-iq
+- MCP (Model Context Protocol): https://modelcontextprotocol.io/
 
 ## Author
 

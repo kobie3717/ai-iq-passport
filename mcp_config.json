@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ai-iq-passport": {
+      "command": "python",
+      "args": ["-m", "passport.mcp_server"],
+      "description": "AI-IQ Passport - Agent identity and reputation as MCP resources"
+    }
+  }
+}
