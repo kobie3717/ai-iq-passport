@@ -8,7 +8,7 @@ from .task_log import TaskEntry, TaskLog
 from .signer import Signer, generate_keypair
 from .verifier import Verifier, verify_card
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "AgentCard",

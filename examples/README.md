@@ -22,6 +22,44 @@ python examples/basic_usage.py
 
 The script creates temporary output files and prints their locations.
 
+## peer_exchange_demo.sh
+
+Shell script demonstrating the complete peer exchange workflow:
+
+- Generating passports for two agents
+- Starting an HTTP server to expose a passport
+- Fetching a remote passport
+- Listing known peers
+- Marking peers as trusted
+- Full exchange handshake
+
+Run it:
+
+```bash
+bash examples/peer_exchange_demo.sh
+```
+
+This creates a complete demo in `/tmp/passport-demo/` showing how agents can discover each other and build trust networks.
+
+## peer_exchange_api.py
+
+Python example showing how to use peer exchange programmatically:
+
+- Creating agent passports with skills and reputation
+- Starting a passport server in a background thread
+- Fetching remote passports via HTTP
+- Exchanging passports between agents
+- Building a local peer registry
+- Making automated trust decisions
+
+Run it:
+
+```bash
+python examples/peer_exchange_api.py
+```
+
+See `PEER_EXCHANGE.md` for complete documentation.
+
 ## Using with AI-IQ
 
 If you have an AI-IQ memory system database, you can import skills and reputation directly:

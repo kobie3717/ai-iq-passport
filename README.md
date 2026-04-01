@@ -139,6 +139,87 @@ ai-iq-passport show passport.json --full  # Show full JSON
 ai-iq-passport refresh --passport passport.json --from-ai-iq ~/.ai-iq/memories.db
 ```
 
+## Peer Exchange
+
+Share and verify agent passports across machines over HTTP. Perfect for agent-to-agent discovery and trust networks.
+
+### Serve your passport
+
+Expose your passport over HTTP for other agents to fetch:
+
+```bash
+ai-iq-passport serve --port 8500
+# Server running at: http://0.0.0.0:8500
+# Endpoints:
+#   GET  /health   - Server health check
+#   GET  /passport - Get full passport
+#   GET  /verify   - Check signature status
+#   POST /exchange - Exchange passports
+```
+
+### Fetch a remote passport
+
+Fetch and display a remote agent's passport:
+
+```bash
+ai-iq-passport fetch http://machine-a:8500
+# Agent: MyAgent
+# ID: agent-123
+# Reputation: 0.85
+# Top Skills: Python (0.9), Testing (0.8), API Design (0.75)
+
+# Save to local peers directory
+ai-iq-passport fetch http://machine-a:8500 --save
+```
+
+### Trust a peer
+
+Mark a peer as trusted in your local registry:
+
+```bash
+ai-iq-passport trust agent-123
+```
+
+### List known peers
+
+View all peers you've collected:
+
+```bash
+ai-iq-passport peers
+# Known Peers (3):
+# ================================================================================
+#
+# [TRUSTED] MyAgent (agent-123...)
+#   Reputation: 0.85
+#   Top Skills: Python, Testing, API Design
+#   File: ~/.ai-iq-passport/peers/agent-123.json
+#
+# [untrusted] RemoteAgent (remote-456...)
+#   Reputation: 0.78
+#   Top Skills: JavaScript, WebDev, React
+#   File: ~/.ai-iq-passport/peers/remote-456.json
+```
+
+### Full exchange handshake
+
+Mutual passport exchange (both agents send and receive):
+
+```bash
+# Machine A: Start server
+ai-iq-passport serve --port 8500
+
+# Machine B: Exchange passports
+ai-iq-passport exchange http://machine-a:8500
+# Exchange successful!
+# Remote Agent: MyAgent
+# Reputation: 0.85
+# Top Skills: Python, Testing, API Design
+# Saved peer to: ~/.ai-iq-passport/peers/agent-123.json
+# Use 'ai-iq-passport trust agent-123' to mark as trusted
+```
+
+For complete documentation including programmatic API, security considerations, and use cases, see [PEER_EXCHANGE.md](PEER_EXCHANGE.md).
+
 ## Export Formats
 
 ### A2A (Agent-to-Agent)
