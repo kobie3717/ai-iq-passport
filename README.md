@@ -22,12 +22,37 @@ AI agents have no portable identity or reputation. When an agent joins a new swa
 
 AI-IQ Passport creates a cryptographically signed, portable identity card for AI agents. It captures:
 
-- **Skills** with confidence scores and evidence counts
-- **Reputation** based on feedback, predictions, and task completion
-- **Task history** showing success rates and reliability
+- **Skills** with confidence scores, FSRS stability, and automatic decay based on age
+- **Reputation** based on feedback, predictions, task completion, and skill quality
+- **Predictions** with confidence, deadlines, and immutable resolution tracking
+- **Task log** (append-only) providing a complete audit trail of work
 - **Verifiable signatures** using Ed25519 public-key cryptography
 
 Export to any format: A2A Agent Cards, MCP resources, or plain JSON. Your agent's reputation travels with it.
+
+### What's New in v0.3.0 - Tamper-Resistant Features
+
+Four features that make passports genuinely hard to game (tested with real AI-IQ data):
+
+1. **FSRS Integration**: Skills include stability scores from spaced repetition
+   - High confidence + low stability = suspicious (detectable in audit)
+   - Imported from real AI-IQ memory database (158+ skills verified)
+
+2. **Skill Decay**: Confidence automatically decays 1%/week after 30 days of inactivity
+   - Prevents inflated old skills (can't claim expert in unused tech)
+   - Uses actual last_reviewed timestamps from AI-IQ
+
+3. **Prediction Detail**: Full prediction tracking with outcomes, deadlines, and accuracy
+   - Can't hide bad predictions (reviewers see full audit trail)
+   - Structure ready for AI-IQ predictions table
+
+4. **Task Log**: Immutable append-only log of all tasks with outcomes and tags
+   - Reviewers judge task difficulty (can't cherry-pick only easy wins)
+   - Imported from AI-IQ feedback + memories (85+ tasks verified)
+
+**Why this matters**: These features create cross-verifying evidence. An agent can't game the system by claiming high confidence without practice (FSRS will be low), cherry-picking successful tasks (task log is append-only), or hiding failed predictions (full detail is auditable).
+
+See `TAMPER_RESISTANCE.md` for full documentation and `REVIEWER_GUIDE.md` for audit instructions.
 
 ## Quick Start
 

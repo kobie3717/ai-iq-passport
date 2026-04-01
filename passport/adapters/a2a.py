@@ -32,6 +32,19 @@ def export_a2a(card_dict: Dict[str, Any]) -> Dict[str, Any]:
         if skill.get("evidence_count"):
             capability["evidence_count"] = skill["evidence_count"]
 
+        # Add FSRS stability, difficulty, and decay info
+        if skill.get("fsrs_stability"):
+            capability["fsrs_stability"] = skill["fsrs_stability"]
+
+        if skill.get("fsrs_difficulty"):
+            capability["fsrs_difficulty"] = skill["fsrs_difficulty"]
+
+        if skill.get("decayed_confidence"):
+            capability["decayed_confidence"] = skill["decayed_confidence"]
+
+        if skill.get("stale"):
+            capability["stale"] = skill["stale"]
+
         capabilities.append(capability)
 
     # Build A2A card
@@ -71,6 +84,31 @@ def export_a2a(card_dict: Dict[str, Any]) -> Dict[str, Any]:
     traits = card_dict.get("traits", {})
     if traits:
         a2a_card["metadata"] = traits
+
+    # Add predictions if available
+    predictions = card_dict.get("predictions", [])
+    if predictions:
+        a2a_card["predictions"] = predictions
+
+    # Add task log summary
+    task_log = card_dict.get("task_log", [])
+    if task_log:
+        # Provide summary instead of full log
+        success_count = sum(1 for t in task_log if t.get("outcome") == "success")
+        a2a_card["task_log_summary"] = {
+            "total_tasks": len(task_log),
+            "success_rate": success_count / len(task_log) if task_log else 0.0,
+            "recent_tasks": task_log[:10] if len(task_log) > 10 else task_log,
+        }
+
+    # Add passport age metadata
+    if card_dict.get("passport_age_days") is not None:
+        a2a_card["passport_metadata"] = {
+            "age_days": card_dict["passport_age_days"],
+            "stale_skills_count": card_dict.get("stale_skills_count", 0),
+            "freshness_score": card_dict.get("freshness_score", 1.0),
+            "last_refreshed": card_dict.get("last_refreshed"),
+        }
 
     # Add signature for verification
     if card_dict.get("signature"):

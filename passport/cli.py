@@ -38,9 +38,14 @@ def cmd_generate(args):
         for skill in skill_manager.to_list():
             card.add_skill(skill)
 
-        # Calculate reputation
+        # Import predictions and task logs
+        import_counts = card.import_ai_iq_data(db_path)
+        print(f"  - Imported {import_counts['predictions']} predictions")
+        print(f"  - Imported {import_counts['tasks']} task log entries")
+
+        # Calculate reputation (pass skills for quality scoring)
         reputation_calc = ReputationCalculator()
-        reputation = reputation_calc.calculate_from_ai_iq(db_path)
+        reputation = reputation_calc.calculate_from_ai_iq(db_path, skills=card.skills)
         card.reputation = reputation
         print(f"  - Calculated reputation: {reputation.overall_score:.2f}")
 

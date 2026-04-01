@@ -2,12 +2,14 @@
 
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 import json
 import uuid
 
 from .skills import Skill
 from .reputation import Reputation
+from .predictions import Prediction, PredictionManager
+from .task_log import TaskEntry, TaskLog
 
 
 @dataclass
@@ -40,11 +42,14 @@ class AgentCard:
     version: str = "0.1.0"
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
+    last_refreshed: datetime = field(default_factory=datetime.now)
     skills: List[Skill] = field(default_factory=list)
     reputation: Optional[Reputation] = None
     task_history: TaskSummary = field(default_factory=TaskSummary)
     traits: Dict[str, str] = field(default_factory=dict)
     signature: Optional[str] = None
+    predictions: List[Dict] = field(default_factory=list)
+    task_log: List[Dict] = field(default_factory=list)
 
     @classmethod
     def create(cls, name: str, agent_id: Optional[str] = None) -> "AgentCard":
@@ -88,19 +93,144 @@ class AgentCard:
         self.traits[key] = value
         self.updated_at = datetime.now()
 
+    def age_days(self) -> int:
+        """Days since passport was last refreshed."""
+        return (datetime.now() - self.last_refreshed).days
+
+    def age_check(self, stale_threshold_days: int = 30) -> Tuple[List[Skill], Dict[str, Any]]:
+        """Check which skills are stale and passport freshness.
+
+        Args:
+            stale_threshold_days: Days after which a skill is considered stale
+
+        Returns:
+            Tuple of (stale_skills_list, metadata_dict)
+        """
+        stale_skills = [s for s in self.skills if s.is_stale(stale_threshold_days)]
+
+        metadata = {
+            "passport_age_days": self.age_days(),
+            "stale_skills_count": len(stale_skills),
+            "total_skills": len(self.skills),
+            "freshness_score": 1.0 - (len(stale_skills) / len(self.skills)) if self.skills else 1.0,
+            "needs_refresh": self.age_days() > 60,
+        }
+
+        return stale_skills, metadata
+
+    def refresh(self) -> None:
+        """Mark passport as refreshed (updates last_refreshed timestamp)."""
+        self.last_refreshed = datetime.now()
+        self.updated_at = datetime.now()
+
+    def log_task(self, task: str, outcome: str, tags: List[str]) -> None:
+        """Log a task (append-only).
+
+        Args:
+            task: Task description
+            outcome: "success" or "failure"
+            tags: List of tags for categorization
+        """
+        self.task_log.append({
+            "task": task,
+            "timestamp": datetime.now().isoformat(),
+            "outcome": outcome,
+            "tags": tags
+        })
+        self.updated_at = datetime.now()
+
+    def task_stats(self) -> Dict[str, Any]:
+        """Get statistics from task log.
+
+        Returns:
+            Dict with total, success_count, failure_count, success_rate, tags_distribution
+        """
+        if not self.task_log:
+            return {
+                "total": 0,
+                "success_count": 0,
+                "failure_count": 0,
+                "success_rate": 0.0,
+                "tags_distribution": {}
+            }
+
+        total = len(self.task_log)
+        success_count = sum(1 for t in self.task_log if t["outcome"] == "success")
+        failure_count = sum(1 for t in self.task_log if t["outcome"] == "failure")
+
+        # Count tag occurrences
+        tags_distribution = {}
+        for task in self.task_log:
+            for tag in task.get("tags", []):
+                tags_distribution[tag] = tags_distribution.get(tag, 0) + 1
+
+        return {
+            "total": total,
+            "success_count": success_count,
+            "failure_count": failure_count,
+            "success_rate": success_count / total if total > 0 else 0.0,
+            "tags_distribution": tags_distribution
+        }
+
+    def import_ai_iq_data(self, db_path: str) -> Dict[str, int]:
+        """Import predictions and task logs from AI-IQ database.
+
+        Args:
+            db_path: Path to AI-IQ memories.db
+
+        Returns:
+            Dict with counts of imported items
+        """
+        # Use PredictionManager and TaskLog for structured import
+        pred_manager = PredictionManager()
+        task_log = TaskLog()
+
+        # Import using dedicated managers
+        pred_count = pred_manager.import_from_ai_iq(db_path)
+        task_count = task_log.import_from_ai_iq(db_path)
+
+        # Convert predictions to dicts for storage
+        self.predictions = pred_manager.to_list()
+
+        # Convert task log entries to card's simple format
+        # TaskEntry has: task_id, description, completed_at, skill_used, outcome, feedback
+        # Card format needs: task, timestamp, outcome, tags
+        for entry_dict in task_log.to_list():
+            normalized = {
+                "task": entry_dict["description"],
+                "timestamp": entry_dict["completed_at"],
+                "outcome": entry_dict["outcome"],
+                "tags": [entry_dict["skill_used"]] if entry_dict["skill_used"] else []
+            }
+            self.task_log.append(normalized)
+
+        self.updated_at = datetime.now()
+        self.last_refreshed = datetime.now()
+
+        return {"predictions": pred_count, "tasks": task_count}
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
+        # Get age check metadata
+        _, age_metadata = self.age_check()
+
         return {
             "agent_id": self.agent_id,
             "name": self.name,
             "version": self.version,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
+            "last_refreshed": self.last_refreshed.isoformat(),
+            "passport_age_days": age_metadata["passport_age_days"],
+            "stale_skills_count": age_metadata["stale_skills_count"],
+            "freshness_score": age_metadata["freshness_score"],
             "skills": [skill.to_dict() for skill in self.skills],
             "reputation": self.reputation.to_dict() if self.reputation else None,
             "task_history": self.task_history.to_dict(),
             "traits": self.traits,
             "signature": self.signature,
+            "predictions": self.predictions,
+            "task_log": self.task_log,
         }
 
     @classmethod
@@ -109,6 +239,11 @@ class AgentCard:
         # Parse datetime strings
         created_at = datetime.fromisoformat(data["created_at"])
         updated_at = datetime.fromisoformat(data["updated_at"])
+
+        # Parse last_refreshed (backward compatible - defaults to updated_at)
+        last_refreshed = updated_at
+        if data.get("last_refreshed"):
+            last_refreshed = datetime.fromisoformat(data["last_refreshed"])
 
         # Parse skills
         skills = [Skill.from_dict(s) for s in data.get("skills", [])]
@@ -129,11 +264,14 @@ class AgentCard:
             version=data.get("version", "0.1.0"),
             created_at=created_at,
             updated_at=updated_at,
+            last_refreshed=last_refreshed,
             skills=skills,
             reputation=reputation,
             task_history=task_history,
             traits=data.get("traits", {}),
             signature=data.get("signature"),
+            predictions=data.get("predictions", []),
+            task_log=data.get("task_log", []),
         )
 
     def to_json(self, indent: int = 2) -> str:

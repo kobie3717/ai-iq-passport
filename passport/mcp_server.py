@@ -39,6 +39,8 @@ from .signer import generate_keypair, Signer
 from .verifier import verify_card
 from .skills import SkillManager
 from .reputation import ReputationCalculator
+from .predictions import PredictionManager
+from .task_log import TaskLog
 
 # Initialize FastMCP server
 mcp = FastMCP(
@@ -172,7 +174,10 @@ def passport_generate(
 
             # Import reputation
             rep_calc = ReputationCalculator()
-            card.reputation = rep_calc.calculate_from_ai_iq(str(db_path))
+            card.reputation = rep_calc.calculate_from_ai_iq(str(db_path), skills=card.skills)
+
+            # Import predictions and task logs
+            card.import_ai_iq_data(str(db_path))
 
         # Save passport
         card.save(str(DEFAULT_PASSPORT_PATH))
@@ -354,6 +359,177 @@ def passport_reputation(agent_id: str = "current") -> Dict[str, Any]:
                 "total_tasks": rep.total_tasks,
             },
             "last_calculated": rep.last_calculated.isoformat(),
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@mcp.tool()
+def passport_predictions(agent_id: str = "current") -> Dict[str, Any]:
+    """Get an agent's prediction track record.
+
+    Args:
+        agent_id: Agent ID or "current" for current agent
+
+    Returns:
+        Prediction history with accuracy stats
+    """
+    ensure_directories()
+
+    try:
+        passport_path = get_passport_path(agent_id)
+
+        if not passport_path.exists():
+            return {
+                "success": False,
+                "error": f"No passport found for agent {agent_id}",
+            }
+
+        card = AgentCard.load(str(passport_path))
+
+        if not card.predictions:
+            return {
+                "success": True,
+                "agent_id": card.agent_id,
+                "agent_name": card.name,
+                "has_predictions": False,
+                "message": "No prediction data available",
+            }
+
+        # Calculate stats
+        total = len(card.predictions)
+        confirmed = sum(1 for p in card.predictions if p.get("outcome") == "confirmed")
+        refuted = sum(1 for p in card.predictions if p.get("outcome") == "refuted")
+        pending = sum(1 for p in card.predictions if p.get("outcome") == "pending")
+        accuracy = confirmed / (confirmed + refuted) if (confirmed + refuted) > 0 else 0.0
+
+        return {
+            "success": True,
+            "agent_id": card.agent_id,
+            "agent_name": card.name,
+            "has_predictions": True,
+            "stats": {
+                "total": total,
+                "confirmed": confirmed,
+                "refuted": refuted,
+                "pending": pending,
+                "accuracy": accuracy,
+            },
+            "recent_predictions": card.predictions[:10],  # Last 10
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@mcp.tool()
+def passport_tasks(agent_id: str = "current") -> Dict[str, Any]:
+    """Get an agent's task completion history.
+
+    Args:
+        agent_id: Agent ID or "current" for current agent
+
+    Returns:
+        Task log with success rate and recent tasks
+    """
+    ensure_directories()
+
+    try:
+        passport_path = get_passport_path(agent_id)
+
+        if not passport_path.exists():
+            return {
+                "success": False,
+                "error": f"No passport found for agent {agent_id}",
+            }
+
+        card = AgentCard.load(str(passport_path))
+
+        if not card.task_log:
+            return {
+                "success": True,
+                "agent_id": card.agent_id,
+                "agent_name": card.name,
+                "has_tasks": False,
+                "message": "No task log available",
+            }
+
+        # Calculate stats
+        total = len(card.task_log)
+        success = sum(1 for t in card.task_log if t.get("outcome") == "success")
+        failure = sum(1 for t in card.task_log if t.get("outcome") == "failure")
+        partial = sum(1 for t in card.task_log if t.get("outcome") == "partial")
+        success_rate = success / total if total > 0 else 0.0
+
+        return {
+            "success": True,
+            "agent_id": card.agent_id,
+            "agent_name": card.name,
+            "has_tasks": True,
+            "stats": {
+                "total": total,
+                "success": success,
+                "failure": failure,
+                "partial": partial,
+                "success_rate": success_rate,
+            },
+            "recent_tasks": card.task_log[:20],  # Last 20
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@mcp.tool()
+def passport_age_check(agent_id: str = "current") -> Dict[str, Any]:
+    """Check passport freshness and identify stale skills.
+
+    Args:
+        agent_id: Agent ID or "current" for current agent
+
+    Returns:
+        Passport age metadata and list of stale skills
+    """
+    ensure_directories()
+
+    try:
+        passport_path = get_passport_path(agent_id)
+
+        if not passport_path.exists():
+            return {
+                "success": False,
+                "error": f"No passport found for agent {agent_id}",
+            }
+
+        card = AgentCard.load(str(passport_path))
+
+        # Get age check results
+        stale_skills, metadata = card.age_check()
+
+        return {
+            "success": True,
+            "agent_id": card.agent_id,
+            "agent_name": card.name,
+            "metadata": metadata,
+            "stale_skills": [
+                {
+                    "name": skill.name,
+                    "confidence": skill.confidence,
+                    "days_since_use": skill.age_days(),
+                    "decayed_confidence": skill.decayed_confidence(),
+                }
+                for skill in stale_skills
+            ],
         }
 
     except Exception as e:

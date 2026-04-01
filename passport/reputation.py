@@ -56,17 +56,19 @@ class ReputationCalculator:
     def __init__(self):
         """Initialize reputation calculator."""
         self.weights = {
-            "feedback": 0.35,
+            "feedback": 0.30,
             "predictions": 0.25,
-            "tasks": 0.25,
+            "tasks": 0.20,
             "consistency": 0.15,
+            "skill_quality": 0.10,
         }
 
-    def calculate_from_ai_iq(self, db_path: str) -> Reputation:
+    def calculate_from_ai_iq(self, db_path: str, skills: List = None) -> Reputation:
         """Calculate reputation from AI-IQ database.
 
         Args:
             db_path: Path to AI-IQ memories.db
+            skills: Optional list of Skill objects to factor into quality score
 
         Returns:
             Reputation object with calculated scores
@@ -91,12 +93,16 @@ class ReputationCalculator:
         # Calculate consistency score
         consistency = self._calculate_consistency(conn)
 
+        # Calculate skill quality score (uses decayed confidence)
+        skill_quality = self._calculate_skill_quality(skills) if skills else 0.5
+
         # Calculate weighted overall score
         overall = (
             feedback_score * self.weights["feedback"]
             + prediction_accuracy * self.weights["predictions"]
             + task_completion * self.weights["tasks"]
             + consistency * self.weights["consistency"]
+            + skill_quality * self.weights["skill_quality"]
         )
 
         conn.close()
@@ -256,11 +262,50 @@ class ReputationCalculator:
         except Exception:
             return 0.5
 
+    def _calculate_skill_quality(self, skills: List) -> float:
+        """Calculate skill quality score from skills with FSRS stability.
+
+        Uses decayed_confidence to account for staleness.
+
+        Args:
+            skills: List of Skill objects
+
+        Returns:
+            quality score 0.0-1.0
+        """
+        if not skills:
+            return 0.5
+
+        # Calculate average decayed confidence weighted by FSRS stability
+        total_weighted_confidence = 0.0
+        total_weight = 0.0
+
+        for skill in skills:
+            # Use decayed confidence to account for staleness
+            decayed_conf = skill.decayed_confidence()
+
+            # Weight by FSRS stability (higher stability = more reliable)
+            # Stability typically ranges 0.1 to 10+, normalize to 0-1
+            stability_weight = min(1.0, skill.fsrs_stability / 10.0) if skill.fsrs_stability > 0 else 0.5
+
+            # Combine confidence and stability
+            weighted_conf = decayed_conf * stability_weight
+
+            total_weighted_confidence += weighted_conf
+            total_weight += stability_weight
+
+        if total_weight == 0:
+            return 0.5
+
+        avg_quality = total_weighted_confidence / total_weight
+        return avg_quality
+
     def calculate_manual(
         self,
         feedback_data: Optional[List[str]] = None,
         predictions_data: Optional[Dict[str, int]] = None,
         tasks_data: Optional[Dict[str, int]] = None,
+        skills: List = None,
     ) -> Reputation:
         """Calculate reputation from manually provided data.
 
@@ -268,6 +313,7 @@ class ReputationCalculator:
             feedback_data: List of feedback strings ("good", "bad", "meh")
             predictions_data: Dict with "confirmed" and "refuted" counts
             tasks_data: Dict with "completed" and "total" counts
+            skills: Optional list of Skill objects
 
         Returns:
             Reputation object
@@ -302,11 +348,15 @@ class ReputationCalculator:
         # Simple consistency (no data available for manual mode)
         consistency = 0.5
 
+        # Calculate skill quality if skills provided
+        skill_quality = self._calculate_skill_quality(skills) if skills else 0.5
+
         overall = (
             feedback_score * self.weights["feedback"]
             + prediction_accuracy * self.weights["predictions"]
             + task_completion * self.weights["tasks"]
             + consistency * self.weights["consistency"]
+            + skill_quality * self.weights["skill_quality"]
         )
 
         return Reputation(

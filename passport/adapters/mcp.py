@@ -64,4 +64,31 @@ def export_mcp(card_dict: Dict[str, Any]) -> Dict[str, Any]:
     if reputation:
         mcp_resource["annotations"]["reputation_score"] = reputation["overall_score"]
 
+    # Add predictions and task log counts
+    predictions = card_dict.get("predictions", [])
+    if predictions:
+        mcp_resource["annotations"]["prediction_count"] = len(predictions)
+        confirmed = sum(1 for p in predictions if p.get("outcome") == "confirmed")
+        if confirmed > 0:
+            mcp_resource["annotations"]["prediction_accuracy"] = confirmed / len(predictions)
+
+    task_log = card_dict.get("task_log", [])
+    if task_log:
+        mcp_resource["annotations"]["task_log_entries"] = len(task_log)
+
+    # Add FSRS stability metrics
+    if skills:
+        avg_stability = sum(s.get("fsrs_stability", 0) for s in skills) / len(skills)
+        avg_difficulty = sum(s.get("fsrs_difficulty", 5.0) for s in skills) / len(skills)
+        stale_count = sum(1 for s in skills if s.get("stale", False))
+        mcp_resource["annotations"]["avg_fsrs_stability"] = avg_stability
+        mcp_resource["annotations"]["avg_fsrs_difficulty"] = avg_difficulty
+        mcp_resource["annotations"]["stale_skills"] = stale_count
+
+    # Add passport age metadata
+    if card_dict.get("passport_age_days") is not None:
+        mcp_resource["annotations"]["passport_age_days"] = card_dict["passport_age_days"]
+        mcp_resource["annotations"]["freshness_score"] = card_dict.get("freshness_score", 1.0)
+        mcp_resource["annotations"]["needs_refresh"] = card_dict.get("passport_age_days", 0) > 60
+
     return mcp_resource
